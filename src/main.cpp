@@ -1,9 +1,12 @@
 #include <cstdint>
+#include <cstdio>
 #include <functional>
+#include <iostream>
 #include <iterator>
 #include <list>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <unordered_map>
 #include <vector>
 #include <format>
@@ -187,8 +190,8 @@ private:
 			while (bids.size() && asks.size())
 			{
 				// time-price priority
-				auto& bid = bids.front();
-				auto& ask = asks.front();
+				auto bid = bids.front();
+				auto ask = asks.front();
 
 				Quantity quantity = std::min(bid->GetRemainingQuantity(), ask->GetRemainingQuantity());
 
@@ -272,7 +275,7 @@ public:
 		if (!orders_.contains(orderId))
 			return;
 
-		const auto& [order, iterator] = orders_.at(orderId);
+		const auto [order, iterator] = orders_.at(orderId);
 		orders_.erase(orderId);
 
 		if (order->GetSide() == Side::Sell)
@@ -292,32 +295,48 @@ public:
 				bids_.erase(price);
 		}
 	}
+
+	Trades MatchOrder(OrderModify order)
+	{
+		if (!orders_.contains(order.GetOrderId()))
+			return { };
+
+		const auto& [existingOrder, _] = orders_.at(order.GetOrderId());
+		CancelOrder(order.GetOrderId());
+		return AddOrder(order.ToOrderPointer(existingOrder->GetOrderType()));
+	}
+
+	std::size_t Size() const { return orders_.size(); }
+
+	OrderBookLevelInfos GetOrderInfos() const
+	{
+		LevelInfos bidInfos, askInfos;
+		bidInfos.reserve(orders_.size());
+		askInfos.reserve(orders_.size());
+
+		auto CreateLevelInfos = [](Price price, const OrderPointers& orders) // (price, list of orders at a given price level) -> Object describing sum of order quantity at a given price
+		{
+			return LevelInfo{ price, std::accumulate(orders.begin(), orders.end(), (Quantity)0,
+					[](Quantity runningSum, const OrderPointer& order)
+					{ return runningSum + order->GetRemainingQuantity(); }) };
+		};
+
+		for (const auto& [price, orders] : bids_)
+			bidInfos.push_back(CreateLevelInfos(price, orders));
+
+		for (const auto& [price, orders] : asks_)
+			askInfos.push_back(CreateLevelInfos(price, orders));
+
+		return OrderBookLevelInfos{ bidInfos, askInfos };
+	}
 };
 
 int main() {
-    return 0;
+	OrderBook orderbook;
+	const OrderId orderId = 1;
+	orderbook.AddOrder(std::make_shared<Order>(OrderType::GoodTilCancel, orderId, Side::Buy, 100, 10));
+	std::cout << orderbook.Size() << std::endl;
+	orderbook.CancelOrder(orderId);
+	std::cout << orderbook.Size() << std::endl;
+	return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
