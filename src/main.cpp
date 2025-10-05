@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <list>
 #include <map>
 #include <memory>
@@ -230,12 +231,66 @@ private:
 		if (!asks_.empty())
 		{
 			auto& [_, asks] = *asks_.begin();
-			auto&order = asks.front();
-			if (asks->GetOrderType == OrderType::FillAndKill)
+			auto& order = asks.front();
+			if (order->GetOrderType() == OrderType::FillAndKill)
 				CancelOrder(order->GetOrderId());
 		}
 
 		return trades;
+	}
+
+public:
+	Trades AddOrder(OrderPointer order)
+	{
+		if (orders_.contains(order->GetOrderId())) // Order is unique
+			return { };
+
+		if (order->GetOrderType() == OrderType::FillAndKill && !CanMatch(order->GetSide(), order->GetPrice())) // Cant match a fill and kill order
+			return { };
+
+		OrderPointers::iterator iterator;
+
+		if (order->GetSide() == Side::Buy)
+		{
+			auto& orders = bids_[order->GetPrice()];
+			orders.push_back(order);
+			iterator = std::next(orders.begin(), orders.size() - 1);
+		}
+		else
+		{
+			auto& orders = asks_[order->GetPrice()];
+			orders.push_back(order);
+			iterator = std::next(orders.begin(), orders.size() - 1);
+		}
+
+		orders_.insert({ order->GetOrderId(), OrderEntry{ order, iterator } });
+		return MatchOrders(); // Vector of trades after matching all possible orders
+	}
+
+	void CancelOrder(OrderId orderId)
+	{
+		if (!orders_.contains(orderId))
+			return;
+
+		const auto& [order, iterator] = orders_.at(orderId);
+		orders_.erase(orderId);
+
+		if (order->GetSide() == Side::Sell)
+		{
+			auto price = order->GetPrice();
+			auto& orders = asks_.at(price);
+			orders.erase(iterator);
+			if (orders.empty()) // if orders are empty, delete that price
+				asks_.erase(price);
+		}
+		else
+		{
+			auto price = order->GetPrice();
+			auto& orders = bids_.at(price);
+			orders.erase(iterator);
+			if (orders.empty())
+				bids_.erase(price);
+		}
 	}
 };
 
