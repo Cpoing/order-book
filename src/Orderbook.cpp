@@ -100,6 +100,22 @@ Trades OrderBook::AddOrder(OrderPointer order)
         !CanMatch(order->GetSide(), order->GetPrice())) // Can't match a fill-and-kill order
         return { };
 
+		if (order->GetOrderType() == OrderType::Market)
+		{
+			if (order->GetSide() == Side::Buy && !asks_.empty())
+			{
+				const auto& [worstAsk, _] = *asks_.rbegin();
+				order->ToGoodTillCancel(worstAsk); // turns Market order to GoodTillCancel order with the price as the worst ask
+			}
+			else if (order->GetSide() == Side::Sell && !bids_.empty())
+			{
+				const auto& [worstBid, _] = *bids_.rbegin();
+				order->ToGoodTillCancel(worstBid);
+			}
+			else
+				return { };
+		}
+
     OrderPointers::iterator iterator;
 
     if (order->GetSide() == Side::Buy)
