@@ -13,5 +13,3 @@ private:
 	LevelInfos bids_;
 	LevelInfos asks_;
 };
-
-
