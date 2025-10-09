@@ -283,9 +283,6 @@ Trades OrderBook::AddOrder(OrderPointer order)
   if (orders_.contains(order->GetOrderId())) // Order is unique
       return { };
 
-  if (order->GetOrderType() == OrderType::FillAndKill &&
-      !CanMatch(order->GetSide(), order->GetPrice())) // Can't match a fill-and-kill order
-      return { };
 
   if (order->GetOrderType() == OrderType::Market)
   {
@@ -302,6 +299,12 @@ Trades OrderBook::AddOrder(OrderPointer order)
     else
       return { };
   }
+
+  if (order->GetOrderType() == OrderType::FillAndKill && !CanMatch(order->GetSide(), order->GetPrice())) // Can't match a fill-and-kill order
+      return { };
+
+	if (order->GetOrderType() == OrderType::FillOrKill && !CanFullyFill(order->GetSide(), order->GetPrice(), order->GetInitialQuantity()))
+		return { };
 
   OrderPointers::iterator iterator;
 
