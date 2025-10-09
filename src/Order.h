@@ -49,9 +49,6 @@ public:
 		if (GetOrderType() != OrderType::Market)
 			throw std::logic_error(std::format("Order ({}) cannot have its price adjusted, only market orders can.", GetOrderId()));
 
-		if (!std::isfinite(price))
-			throw std::logic_error(std::format("Order ({}) must be a tradable price.", GetOrderId()));
-
 		price_ = price;
 		orderType_ = OrderType::GoodTilCancel;
 	}

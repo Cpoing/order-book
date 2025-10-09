@@ -28,8 +28,8 @@ private:
 
 		struct LevelData
 		{
-			Quantity quantity_{ }; // Total quantity at that price
-			Quantity count_{ }; // Number of orders at that price
+			Quantity quantity_{ }; // Quantity of orders at that price
+			Quantity count_{ }; // Number of people selling at that price
 
 			enum class Action
 			{
@@ -64,6 +64,10 @@ private:
 
 public:
 		OrderBook();
+		OrderBook(const OrderBook&) = delete;
+		void operator=(const OrderBook&) = delete;
+		OrderBook(OrderBook&&) = delete;
+		void operator=(const OrderBook&&) = delete;
 		~OrderBook();
 		
     Trades AddOrder(OrderPointer order);
