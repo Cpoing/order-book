@@ -1,0 +1,5 @@
+if(EXISTS "/Users/tedlee/Documents/cpp/order-book/src/build/OrderBookTest[1]_tests.cmake")
+  include("/Users/tedlee/Documents/cpp/order-book/src/build/OrderBookTest[1]_tests.cmake")
+else()
+  add_test(OrderBookTest_NOT_BUILT OrderBookTest_NOT_BUILT)
+endif()
