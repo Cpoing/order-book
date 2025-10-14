@@ -1,5 +1,0 @@
-/Users/tedlee/Documents/cpp/order-book/src/build/CMakeFiles/OrderBook.dir
-/Users/tedlee/Documents/cpp/order-book/src/build/CMakeFiles/OrderBookTest.dir
-/Users/tedlee/Documents/cpp/order-book/src/build/CMakeFiles/test.dir
-/Users/tedlee/Documents/cpp/order-book/src/build/CMakeFiles/edit_cache.dir
-/Users/tedlee/Documents/cpp/order-book/src/build/CMakeFiles/rebuild_cache.dir
