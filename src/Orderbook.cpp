@@ -6,6 +6,7 @@
 #include <chrono>
 #include <ctime>
 #include <mutex>
+#include <numeric>
 #include <optional>
 
 void OrderBook::PruneGoodForDayOrders()
@@ -138,12 +139,12 @@ bool OrderBook::CanFullyFill(Side side, Price price, Quantity quantity) const
 
   if (side == Side::Buy)
   {
-    const auto [askPrice, _] = *bids_.begin();
+    const auto [askPrice, _] = *asks_.begin();
     threshold = askPrice;
   }
   else
   {
-    const auto[bidPrice, _] = *asks_.begin();
+    const auto[bidPrice, _] = *bids_.begin();
     threshold = bidPrice;
   }
 
@@ -335,14 +336,23 @@ void OrderBook::CancelOrder(OrderId orderId)
 	CancelOrderInternal(orderId);
 }
 
-Trades OrderBook::MatchOrder(OrderModify order)
+Trades OrderBook::ModifyOrder(OrderModify order)
 {
-    if (!orders_.contains(order.GetOrderId()))
-        return { };
+	OrderType orderType;
 
-    const auto& [existingOrder, _] = orders_.at(order.GetOrderId());
+	{
+		std::scoped_lock ordersLock{ ordersMutex_ };
+
+		if (!orders_.contains(order.GetOrderId()))
+			return { };
+
+		const auto& [existingOrder, _] = orders_.at(order.GetOrderId());
+		orderType = existingOrder->GetOrderType();
+
+	}
+
     CancelOrder(order.GetOrderId());
-    return AddOrder(order.ToOrderPointer(existingOrder->GetOrderType()));
+    return AddOrder(order.ToOrderPointer(orderType));
 }
 
 std::size_t OrderBook::Size() const

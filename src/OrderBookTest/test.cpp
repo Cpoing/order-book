@@ -1,9 +1,13 @@
 #include "pch.h"
 
 #include "../OrderBook.cpp"
+#include "gtest/gtest.h"
 #include <charconv>
+#include <filesystem>
+#include <memory>
 #include <stdexcept>
 #include <string_view>
+#include <format>
 
 namespace googletest = ::testing;
 
@@ -36,14 +40,14 @@ struct Result
 struct InputHandler
 {
 private:
-	std::uint64_t ToNumber(const std::string_view& str) const
+	std::uint32_t ToNumber(const std::string_view& str) const
 	{
 		std::int64_t value{};
 		std::from_chars(str.data(), str.data() + str.size(), value);
 		if (value < 0)
 			throw std::logic_error("Value is below zero.");
 
-		return static_cast<std::uint64_t>(value);
+		return static_cast<std::uint32_t>(value);
 	}
 
 	bool TryParseResult(const std::string_view& str, Result& result) const
@@ -90,19 +94,20 @@ private:
 		return true;
 	}
 
-	std::vector<std::string_view> Split(const std::string_view& str, char delimiter) const
+	std::vector<std::string_view> Split(const std::string_view& str, char delimeter) const
 	{
 		std::vector<std::string_view> columns{};
-		std::size_t startIndex{}, endIndex{};
-		while ((endIndex = str.find(delimiter, startIndex)) && endIndex != std::string::npos)
+		columns.reserve(5);
+		std::size_t start_index{}, end_index{};
+		while ((end_index = str.find(delimeter, start_index)) && end_index != std::string::npos)
 		{
-			auto distance = endIndex - startIndex;
-			auto column = str.substr(startIndex, distance);
-			startIndex = endIndex + 1;
+			auto distance = end_index - start_index;
+			auto column = str.substr(start_index, distance);
+			start_index = end_index + 1;
 			columns.push_back(column);
 		}
 
-		columns.push_back(str.substr(startIndex));
+		columns.push_back(str.substr(start_index));
 		return columns;
 	}
 
@@ -119,7 +124,7 @@ private:
 	{
 		if (str == "FillAndKill")
 			return OrderType::FillAndKill;
-		else if (str == "GoodTilCancel")
+		else if (str == "GoodTillCancel")
 			return OrderType::GoodTilCancel;
 		else if (str == "GoodForDay")
 			return OrderType::GoodForDay;
@@ -143,7 +148,7 @@ private:
 		if (str.empty())
 			throw std::logic_error("Unknown Quantity");
 
-		ToNumber(str);
+		return ToNumber(str);
 	}
 
 	OrderId ParseOrderId(const std::string_view& str) const
@@ -165,6 +170,7 @@ public:
 		std::ifstream file{ path };
 		while(std::getline(file, line))
 		{
+			std:: cout << "--------------------------: " << line <<std::endl;
 			if (line.empty())
 				break;
 
@@ -177,18 +183,18 @@ public:
 
 				auto isValid = TryParseInformation(line, update);
 				if (!isValid)
-					throw std::logic_error(std::format("Invalid update: {}", line));
+					continue;
 
 				infos.push_back(update);
 			}
 			else
 			{
-				if (!file.eof())
-					throw std::logic_error("Result must be at the end of the file only.");
+				//if (!file.eof())
+				//	throw std::logic_error("Result must be at the end of the file only.");
 
 				Result result;
-				auto isValid = TryParseResult(line, result);
 
+				auto isValid = TryParseResult(line, result);
 				if (!isValid)
 					continue;
 
@@ -197,5 +203,84 @@ public:
 		}
 		throw std::logic_error("No result specified.");
 	}
-
 };
+
+class OrderBookTestsFixure : public googletest::TestWithParam<const char*>
+{
+private:
+	//const static inline std::filesystem::path Root { std::filesystem::current_path() };
+	const static inline std::filesystem::path Root { std::filesystem::path(__FILE__).parent_path() };
+	const static inline std::filesystem::path TestFolder{ "TestFiles" };
+public:
+	const static inline std::filesystem::path TestFolderPath{ Root / TestFolder };
+};
+
+TEST_P(OrderBookTestsFixure, OrderBookTestSuite)
+{
+	const auto file = OrderBookTestsFixure::TestFolderPath / GetParam();
+
+	InputHandler handler;
+	const auto [updates, result] = handler.GetInformations(file);
+
+	auto GetOrder = [](const Information& information) 
+	{
+		return std::make_shared<Order>(
+				information.orderType_,
+				information.orderId_,
+				information.side_,
+				information.price_,
+				information.quantity_
+				);
+	};
+	
+	auto GetOrderModify = [](const Information& information)
+	{
+		return OrderModify
+		{
+			information.orderId_,
+			information.side_,
+			information.price_,
+			information.quantity_
+		};
+	};
+
+	OrderBook orderbook;
+	for (const auto& update : updates)
+	{
+		switch (update.type_)
+		{
+			case ActionType::Add:
+			{
+				const Trades& trades = orderbook.AddOrder(GetOrder(update));
+			}
+			break;
+			case ActionType::Modify:
+			{
+				const Trades& trades = orderbook.ModifyOrder(GetOrderModify(update));
+			}
+			break;
+			case ActionType::Cancel:
+			{
+				orderbook.CancelOrder(update.orderId_);
+			}
+			break;
+			default:
+				throw std::logic_error("Unsupported update");
+		}
+	}
+
+	const auto& orderbookInfos = orderbook.GetOrderInfos();
+	ASSERT_EQ(orderbook.Size(), result.allCount_);
+	ASSERT_EQ(orderbookInfos.GetBids().size(), result.bidCount_);
+	ASSERT_EQ(orderbookInfos.GetAsks().size(), result.askCount_);
+}
+
+INSTANTIATE_TEST_CASE_P(Tests, OrderBookTestsFixure, googletest::ValuesIn({
+			"Match_GoodTillCancel.txt",
+			"Match_FillAndKill.txt",
+			"Match_FillOrKill_Hit.txt",
+			"Match_FillOrKill_Miss.txt",
+			"Cancel_Success.txt",
+			"Modify_Side.txt",
+			"Match_Market.txt",
+			}));

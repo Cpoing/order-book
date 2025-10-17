@@ -6,11 +6,7 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
-#include <algorithm>
-#include <numeric>
-#include <iterator>
 
-#include "LevelInfo.h"
 #include "Usings.h"
 #include "Order.h"
 #include "OrderModify.h"
@@ -40,9 +36,9 @@ private:
 		};
 
 		std::unordered_map<Price, LevelData> data_;
-    std::map<Price, OrderPointers, std::greater<Price>> bids_;
-    std::map<Price, OrderPointers, std::less<Price>> asks_;
-    std::unordered_map<OrderId, OrderEntry> orders_;
+		std::map<Price, OrderPointers, std::greater<Price>> bids_;
+		std::map<Price, OrderPointers, std::less<Price>> asks_;
+		std::unordered_map<OrderId, OrderEntry> orders_;
 		mutable std::mutex ordersMutex_;
 		std::thread ordersPruneThread_;
 		std::condition_variable shutdownConditionVariable_;
@@ -59,8 +55,8 @@ private:
 		void UpdateLevelData(Price price, Quantity quantity, LevelData::Action action);
 
 		bool CanFullyFill(Side side, Price price, Quantity quantity) const;
-    bool CanMatch(Side side, Price price) const;
-    Trades MatchOrders();
+		bool CanMatch(Side side, Price price) const;
+		Trades MatchOrders();
 
 public:
 		OrderBook();
@@ -72,7 +68,7 @@ public:
 		
     Trades AddOrder(OrderPointer order);
     void CancelOrder(OrderId orderId);
-    Trades MatchOrder(OrderModify order);
+    Trades ModifyOrder(OrderModify order);
 
     std::size_t Size() const;
     OrderBookLevelInfos GetOrderInfos() const;
